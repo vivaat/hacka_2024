@@ -7,7 +7,8 @@ syntax = {
     "[" : 6,
     "]" : 7,
     "<" : 8,
-    ">" : 9
+    ">" : 9,
+    "," : 10,
 }
 
 keytokens = {
@@ -88,6 +89,7 @@ class TokenType(IntEnum):
     Keyword = 40
     Library = 100
     BuildinType = 200
+    Literal = 300
     StringLiteral = 500
     ReferenceType = 2000
     Unknown = 5000
@@ -146,6 +148,9 @@ class  PreParser:
         self.file.seek(self.file.tell() - 1, 0)
         return saved_char
 
+    def add_char(self):
+        self.value += self.char
+
     def end_token(self):
         if not self.value:
             return False
@@ -181,6 +186,11 @@ class  PreParser:
             UsageError("PreParser.collapse_comments() shall be called when self.char is on the second symbol of an opening comment sequence.")
         raise ParsingError("Comment is not closed.")
     
+    def is_compare(self):
+        if self.peel_next_char() == "=":
+            return True
+        return False
+
     def collapse_string(self):
         string = ""
         while self.read_next_char():
@@ -191,7 +201,6 @@ class  PreParser:
             string += self.char
         raise ParsingError("String literal is not closed.")
 
-    
     def parse(self):
         while self.read_next_char():
             if self.char.isspace():
@@ -200,7 +209,16 @@ class  PreParser:
  
             if(self.char in syntax):
                 self.end_token()
-                self.value = self.char
+                self.add_char()
+                self.end_token()
+                continue
+
+            if(self.char == "!" or self.char == "="):
+                self.add_char()
+                self.type = TokenType.Syntax
+                if self.is_compare():
+                    self.read_next_char()
+                    self.add_char()
                 self.end_token()
                 continue
 
@@ -217,7 +235,7 @@ class  PreParser:
                 self.end_token()
                 continue
 
-            self.value += self.char
+            self.add_char()
         else:
             self.end_token()   
 
@@ -242,9 +260,23 @@ class Parser:
     def remember_class(self, token):
         self.known_user_types[token.value] = True
 
-    def is_know_type(self, t):
-        return t.value in self.known_user_types
+    def is_know_type(self, token):
+        return token.value in self.known_user_types
     
+    def is_floatable(self, token):
+        try:
+            float(token.value)
+            return True
+        except ValueError:
+            return False
+
+    def is_intable(self, token):
+        try:
+            int(token.value)
+            return True
+        except ValueError:
+            return False
+        
     def parse(self):
         for idx, t in enumerate(self.tokens):
             if self.is_class(t):
@@ -252,8 +284,12 @@ class Parser:
 
 
         for t in self.tokens:
-            if  self.is_know_type(t):
+            if   self.is_know_type(t):
                 self.result.append( Token(TokenType.ReferenceType, t.value) )
+            elif self.is_floatable(t):
+                self.result.append( Token(TokenType.Literal, float(t.value)) )
+            elif self.is_intable(t):
+                self.result.append( Token(TokenType.Literal, int(t.value)) )
             else:
                 self.result.append(t)
 
