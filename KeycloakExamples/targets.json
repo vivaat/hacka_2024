@@ -1,0 +1,22 @@
+{
+  "file": "D:\\vivahack24\\KeycloakExamples\\Main.java",
+  "locations": [
+    {
+      "start": 52,
+      "end": 52
+    },
+    {
+      "start": 74,
+      "end": 74
+    },
+    {
+      "start": 92,
+      "end": 104
+    },
+    {
+      "start": 114,
+      "end": 126
+    }
+  ],
+  "parent": {"start":  36, "end":  136}
+}
