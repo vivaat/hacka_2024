@@ -5,7 +5,9 @@ syntax = {
     "(" : 4,
     ")" : 5,
     "[" : 6,
-    "]" : 7
+    "]" : 7,
+    "<" : 8,
+    ">" : 9
 }
 
 keytokens = {
@@ -14,8 +16,6 @@ keytokens = {
     "if" : 0,
     "package" : 0,	
     "synchronized" : 0,
-    "boolean" : 0,
-    "double" : 0,
     "implements" : 0,	
     "private" : 0,
     "this" : 0,
@@ -24,30 +24,24 @@ keytokens = {
     "import" : 0,
     "protected" : 0,
     "throw" : 0,
-    "byte" : 0,
     "extends" : 0,
     "instanceof" : 0,
     "public" : 0,
     "throws" : 0,
     "case" : 0,
     "false" : 0,
-    "int" : 0,
     "return" : 0,
     "catch" : 0,
     "final" : 0,
     "interface" : 0,
     "short" : 0,
     "true" : 0,
-    "char" : 0,
     "finally" : 0,
-    "long" : 0,
     "static" : 0,
     "try" : 0,
     "class" : 0,
-    "float" : 0,
     "native" : 0,
     "strictfp" : 0,
-    "void" : 0,
     "const" : 0,
     "for" : 0,
     "new" : 0,
@@ -61,15 +55,43 @@ keytokens = {
     "assert" : 0,
 }
 
+buildin_types = {
+    "boolean" : 0,
+    "double" : 0,
+    "float" : 0,
+    "long" : 0,
+    "char" : 0,
+    "int" : 0,
+    "void" : 0,
+    "byte" : 0,
+}
+
+wrapper_types = {
+    "Byte" : 0,
+    "Short" : 0,
+    "Integer" : 0,
+    "Long" : 0,
+    "Float" : 0,
+    "Double" : 0,
+    "Boolean" : 0,
+    "Character" : 0
+}
+
+
+
 from collections import namedtuple
 from enum        import IntEnum
 
 class TokenType(IntEnum):
-    Keyword = 0
+    Comment = 0
     Syntax  = 1
-    Comment = 2
-    StringLiteral = 3
-    Unknown = 4
+    Keyword = 40
+    Library = 100
+    BuildinType = 200
+    StringLiteral = 500
+    ReferenceType = 2000
+    Unknown = 5000
+
 
 Token  = namedtuple('Token', ['type', 'value'])
 
@@ -78,6 +100,10 @@ def determine_type(value):
         return TokenType.Syntax
     elif value in keytokens:
         return TokenType.Keyword
+    elif value in buildin_types:
+        return TokenType.BuildinType
+    elif value in wrapper_types:
+        return TokenType.ReferenceType
     else:
         return TokenType.Unknown
     
@@ -123,7 +149,7 @@ class  PreParser:
     def end_token(self):
         if not self.value:
             return False
-        self.tokens.append( Token(self.type, self.value) )
+        self.tokens.append( Token(self.type if self.type != TokenType.Unknown else determine_type(self.value), self.value) )
         self.value = ""
         self.type = TokenType.Unknown
         return True
@@ -168,11 +194,6 @@ class  PreParser:
     
     def parse(self):
         while self.read_next_char():
-            if(self.char == '\n'):
-                self.end_token()
-                self.value = self.char
-                self.end_token()
-
             if self.char.isspace():
                 self.end_token()
                 continue
@@ -204,6 +225,7 @@ class Parser:
     def __init__(self, tokens):
         self.tokens  = tokens
         self.result = []
+        self.known_user_types = {};
 
     def __enter__(self):
         return self
@@ -214,11 +236,24 @@ class Parser:
     def get_result(self):
         return self.result
     
+    def is_class(self, token):
+        return token.value == 'class'
+    
+    def remember_class(self, token):
+        self.known_user_types[token.value] = True
+
+    def is_know_type(self, t):
+        return t.value in self.known_user_types
+    
     def parse(self):
+        for idx, t in enumerate(self.tokens):
+            if self.is_class(t):
+                self.remember_class( self.tokens[idx + 1] )
+
+
         for t in self.tokens:
-            if   t.type != TokenType.Unknown:
-                self.result.append(t)
-            elif t.value == "\n":
-                continue
+            if  self.is_know_type(t):
+                self.result.append( Token(TokenType.ReferenceType, t.value) )
             else:
-                self.result.append( Token(determine_type(t.value), t.value) )
+                self.result.append(t)
+
