@@ -260,7 +260,7 @@ class Parser:
     def remember_class(self, token):
         self.known_user_types[token.value] = True
 
-    def is_know_type(self, token):
+    def is_known_type(self, token):
         return token.value in self.known_user_types
     
     def is_floatable(self, token):
@@ -284,7 +284,7 @@ class Parser:
 
 
         for t in self.tokens:
-            if   self.is_know_type(t):
+            if   self.is_known_type(t):
                 self.result.append( Token(TokenType.ReferenceType, t.value) )
             elif self.is_floatable(t):
                 self.result.append( Token(TokenType.Literal, float(t.value)) )
