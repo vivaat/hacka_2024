@@ -9,6 +9,7 @@ syntax = {
     "<" : 8,
     ">" : 9,
     "," : 10,
+    "." : 11
 }
 
 keytokens = {
@@ -242,7 +243,9 @@ class  PreParser:
 class Parser:
     def __init__(self, tokens):
         self.tokens  = tokens
-        self.result = []
+        self.token   = None
+        self.idx     = -1
+        self.result  = []
         self.known_user_types = {};
 
     def __enter__(self):
@@ -251,45 +254,92 @@ class Parser:
     def __exit__(self, type, value, traceback):
         (...)
 
+    def reset(self):
+        self.idx   = -1
+        self.token = None
+
+    def next(self):
+        if self.idx + 1 >= len(self.tokens):
+            return None
+        self.idx   = self.idx + 1
+        self.token = self.tokens[self.idx]
+        return self.token
+        
+    def prev(self):
+        if self.idx - 1 < 0:
+            return None
+        self.idx   = self.idx - 1
+        self.token = self.tokens[self.idx]
+        return self.token
+
+    def peel_next(self):
+        if self.idx + 1 >= len(self.tokens):
+            return None 
+        return self.tokens[self.idx + 1]
+
     def get_result(self):
         return self.result
     
-    def is_class(self, token):
-        return token.value == 'class'
+    def is_class(self):
+        return self.token.value == 'class'
     
-    def remember_class(self, token):
-        self.known_user_types[token.value] = True
+    def remember_class(self):
+        self.known_user_types[self.token.value] = True
 
-    def is_known_type(self, token):
-        return token.value in self.known_user_types
+    def is_known_type(self):
+        return self.token.value in self.known_user_types
     
-    def is_floatable(self, token):
+    def is_floatable(self):
         try:
-            float(token.value)
+            float(self.token.value)
             return True
         except ValueError:
             return False
 
-    def is_intable(self, token):
+    def is_intable(self):
         try:
-            int(token.value)
+            int(self.token.value)
             return True
         except ValueError:
             return False
-        
+
+    def is_compare(self):
+        return self.peel_next() == "="
+    
+    def parse_bracket(self):
+        if self.peel_next().value != "]":
+            self.result.append( Token(TokenType.Syntax, self.token.value) )
+            return
+        t = self.result.pop(-1)
+        self.next()
+        self.result.append( Token(TokenType.ReferenceType, t.value + "[]") )
+
+    def parse_library(self):
+        self.result.append( Token(TokenType.Keyword, self.token.value) )
+        s = ""
+        while self.next().value != ";":
+            s += self.token.value
+        self.result.append( Token(TokenType.Library, s) )
+        self.result.append( Token(TokenType.Syntax,  ";") )
+
     def parse(self):
-        for idx, t in enumerate(self.tokens):
-            if self.is_class(t):
-                self.remember_class( self.tokens[idx + 1] )
+        self.reset()
+        while self.next():
+            if self.is_class():
+                self.next()
+                self.remember_class()
 
-
-        for t in self.tokens:
-            if   self.is_known_type(t):
-                self.result.append( Token(TokenType.ReferenceType, t.value) )
-            elif self.is_floatable(t):
-                self.result.append( Token(TokenType.Literal, float(t.value)) )
-            elif self.is_intable(t):
-                self.result.append( Token(TokenType.Literal, int(t.value)) )
+        self.reset()
+        while self.next():
+            if   self.token.value == "[":
+                self.parse_bracket()
+            elif self.is_known_type():
+                self.result.append( Token(TokenType.ReferenceType, self.token.value) )
+            elif self.is_floatable():
+                self.result.append( Token(TokenType.Literal, float(self.token.value)) )
+            elif self.is_intable():
+                self.result.append( Token(TokenType.Literal, int(self.token.value)) )
+            elif self.token.value == "import":
+                self.parse_library()
             else:
-                self.result.append(t)
-
+                self.result.append(self.token)
