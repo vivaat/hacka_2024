@@ -9,22 +9,26 @@ def get_strings_from_targets_json() -> list[str]:
 
     settings = {
         "locations": [
-            {
-                "start": 52,
-                "end": 52
-            },
-            {
-                "start": 74,
-                "end": 74
-            },
-            {
-                "start": 92,
-                "end": 104
-            },
-            {
-                "start": 114,
-                "end": 126
-            }
+            [
+                {
+                    "start": 52,
+                    "end": 52
+                },
+                {
+                    "start": 114,
+                    "end": 126
+                }
+            ],
+            [
+                {
+                    "start": 74,
+                    "end": 74
+                },
+                {
+                    "start": 92,
+                    "end": 104
+                }
+            ]
         ],
         "parent": {"start": 36, "end": 136}
     }
@@ -36,17 +40,13 @@ def get_strings_from_targets_json() -> list[str]:
     with open(settings["file"], 'r', encoding='utf-8') as code:
         content = code.readlines()
         output = []
-
-        for target in settings["locations"]:
-            if target["start"] != target["end"]:
-                output.append(
-                    '\n'.join(content[target["start"]:target["end"] + 1])
-                )
-            else:
-                output.append(content[target["start"] - 1])
+        for location in settings['locations']:
+            for target in location:
+                if target["start"] != target["end"]:
+                    output.append(
+                        '\n'.join(content[target["start"]:target["end"] + 1])
+                    )
+                else:
+                    output.append(content[target["start"] - 1])
 
         return output
-
-
-if __name__ == '__main__':
-    print(get_strings_from_targets_json())
